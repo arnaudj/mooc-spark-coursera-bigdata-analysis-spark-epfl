@@ -20,16 +20,26 @@ object WikipediaRanking {
     "JavaScript", "Java", "PHP", "Python", "C#", "C++", "Ruby", "CSS",
     "Objective-C", "Perl", "Scala", "Haskell", "MATLAB", "Clojure", "Groovy")
 
-  val conf: SparkConf = ???
-  val sc: SparkContext = ???
+  val masterURL = "local" // locally, 1 core (local[N/*] for N/all cores)
+  val conf: SparkConf = new SparkConf().setAppName("WikipediaSparkWeek1").setMaster(masterURL)
+  val sc: SparkContext = new SparkContext(conf)
   // Hint: use a combination of `sc.textFile`, `WikipediaData.filePath` and `WikipediaData.parse`
-  val wikiRdd: RDD[WikipediaArticle] = ???
+
+  val wikiRdd: RDD[WikipediaArticle] = sc.textFile(WikipediaData.filePath)
+    .map(WikipediaData.parse)
+    .cache()
 
   /** Returns the number of articles on which the language `lang` occurs.
-   *  Hint1: consider using method `aggregate` on RDD[T].
-   *  Hint2: consider using method `mentionsLanguage` on `WikipediaArticle`
-   */
-  def occurrencesOfLang(lang: String, rdd: RDD[WikipediaArticle]): Int = ???
+    * Hint1: consider using method `aggregate` on RDD[T].
+    * Hint2: consider using method `mentionsLanguage` on `WikipediaArticle`
+    */
+  def occurrencesOfLang(lang: String, rdd: RDD[WikipediaArticle]): Int = {
+    //rdd.filter(_.mentionsLanguage(lang)).count().toInt
+    rdd.aggregate(0)(
+      (counter, article) => if (article.mentionsLanguage(lang)) counter + 1 else counter, //seqOp, acc on partition
+      (a, b) => a + b // comboOp, combine partitions results
+    )
+  }
 
   /* (1) Use `occurrencesOfLang` to compute the ranking of the languages
    *     (`val langs`) by determining the number of Wikipedia articles that
@@ -83,6 +93,7 @@ object WikipediaRanking {
   }
 
   val timing = new StringBuffer
+
   def timed[T](label: String, code: => T): T = {
     val start = System.currentTimeMillis()
     val result = code

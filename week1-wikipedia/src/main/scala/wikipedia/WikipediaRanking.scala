@@ -32,6 +32,7 @@ object WikipediaRanking {
   /** Returns the number of articles on which the language `lang` occurs.
     * Hint1: consider using method `aggregate` on RDD[T].
     * Hint2: consider using method `mentionsLanguage` on `WikipediaArticle`
+    * @return nb articles (hits) for that language
     */
   def occurrencesOfLang(lang: String, rdd: RDD[WikipediaArticle]): Int = {
     //rdd.filter(_.mentionsLanguage(lang)).count().toInt
@@ -48,8 +49,12 @@ object WikipediaRanking {
    *
    *   Note: this operation is long-running. It can potentially run for
    *   several seconds.
+   *   @return List[(languageName, languageArticlesHitsCount)]
    */
-  def rankLangs(langs: List[String], rdd: RDD[WikipediaArticle]): List[(String, Int)] = ???
+  def rankLangs(langs: List[String], rdd: RDD[WikipediaArticle]): List[(String, Int)] = {
+    langs.map(languageName => (languageName, occurrencesOfLang(languageName, rdd)))
+      .sortBy(-_._2) // reverse sort by hits
+  }
 
   /* Compute an inverted index of the set of articles, mapping each language
    * to the Wikipedia pages in which it occurs.

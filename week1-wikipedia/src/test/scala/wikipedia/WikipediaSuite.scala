@@ -4,10 +4,6 @@ import org.scalatest.{FunSuite, BeforeAndAfterAll}
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 
-import org.apache.spark.SparkConf
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
-
 @RunWith(classOf[JUnitRunner])
 class WikipediaSuite extends FunSuite with BeforeAndAfterAll {
 
@@ -72,6 +68,21 @@ class WikipediaSuite extends FunSuite with BeforeAndAfterAll {
     val ranked = rankLangs(langs, rdd)
     val res = ranked.head._1 == "Scala"
     assert(res)
+  }
+
+  test("'rankLangs' should work for RDD with 4 elements") {
+    assert(initializeWikipediaRanking(), " -- did you fill in all the values in WikipediaRanking (conf, sc, wikiRdd)?")
+    import WikipediaRanking._
+    val langs = List("Scala", "Java", "PHP", "MATLAB", "Ruby", "C++")
+    val rdd = sc.parallelize(List(
+      WikipediaArticle("1", "Scala is great"),
+      WikipediaArticle("2", "Really Scala is great"),
+      WikipediaArticle("3", "Java is OK, but Scala is cooler"),
+      WikipediaArticle("4", "PHP is OK, but Fake is cooler"),
+      WikipediaArticle("5", "C++ is OK, but PHP is cooler")
+    ))
+    val ranked = rankLangs(langs, rdd)
+    assert(ranked == List(("Scala", 3), ("PHP", 2), ("Java", 1), ("C++", 1), ("MATLAB", 0), ("Ruby", 0)))
   }
 
   test("'makeIndex' creates a simple index with two entries") {

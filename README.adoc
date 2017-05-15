@@ -1,0 +1,10 @@
+= Big Data Analysis with Scala and Spark
+
+Assignments code for https://www.coursera.org/learn/scala-spark-big-data[Big Data Analysis with Scala and Spark] course (Coursera EPFL)
+
+Assignments:
+
+* Week 1: Wikipedia
+
+-> `Your overall score for this assignment is 10.00 out of 10.00`
+

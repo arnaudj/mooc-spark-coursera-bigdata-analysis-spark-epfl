@@ -1,8 +1,8 @@
 package wikipedia
 
-import org.scalatest.{FunSuite, BeforeAndAfterAll}
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
+import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 @RunWith(classOf[JUnitRunner])
 class WikipediaSuite extends FunSuite with BeforeAndAfterAll {
@@ -89,15 +89,22 @@ class WikipediaSuite extends FunSuite with BeforeAndAfterAll {
     assert(initializeWikipediaRanking(), " -- did you fill in all the values in WikipediaRanking (conf, sc, wikiRdd)?")
     import WikipediaRanking._
     val langs = List("Scala", "Java")
+    val a1 = WikipediaArticle("1","Groovy is pretty interesting, and so is Erlang")
+    val a2 = WikipediaArticle("2","Scala and Java run on the JVM")
+    val a3 = WikipediaArticle("3","Scala is not purely functional")
+
     val articles = List(
-        WikipediaArticle("1","Groovy is pretty interesting, and so is Erlang"),
-        WikipediaArticle("2","Scala and Java run on the JVM"),
-        WikipediaArticle("3","Scala is not purely functional")
+        a1,
+        a2,
+        a3
       )
     val rdd = sc.parallelize(articles)
     val index = makeIndex(langs, rdd)
-    val res = index.count() == 2
-    assert(res)
+    assert(index.count() == 2)
+    assert(index.map(p => (p._1, p._2.toList)).sortBy(_._1).collect() sameElements Array(
+      ("Java", List(a2)),
+      ("Scala", List(a2, a3))
+    ))
   }
 
   test("'rankLangsUsingIndex' should work for a simple RDD with three elements") {

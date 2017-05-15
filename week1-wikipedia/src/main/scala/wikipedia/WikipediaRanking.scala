@@ -35,7 +35,7 @@ object WikipediaRanking {
     //rdd.filter(_.mentionsLanguage(lang)).count().toInt
     rdd.aggregate(0)(
       (counter, article) => if (article.mentionsLanguage(lang)) counter + 1 else counter, //seqOp, acc on partition
-      (a, b) => a + b // comboOp, combine partitions results
+      _ + _ // comboOp, combine partitions results
     )
   }
 
@@ -59,8 +59,8 @@ object WikipediaRanking {
    */
   def makeIndex(langs: List[String], rdd: RDD[WikipediaArticle]): RDD[(String, Iterable[WikipediaArticle])] = {
     rdd.flatMap(article =>
-      langs.filter(lang => article.mentionsLanguage(lang)).map(lang => (lang, article))
-    ).groupByKey()
+      langs.filter(article.mentionsLanguage).map((_, article))
+    ).groupByKey
   }
 
   /* (2) Compute the language ranking again, but now using the inverted index. Can you notice
@@ -70,8 +70,8 @@ object WikipediaRanking {
    *   several seconds.
    */
   def rankLangsUsingIndex(index: RDD[(String, Iterable[WikipediaArticle])]): List[(String, Int)] = {
-    index.mapValues(articles => articles.size)
-      .sortBy(-_._2) // reverse sort by hits
+    index.mapValues(_.size)
+      .sortBy(_._2, ascending = false)
       .collect().toList
   }
 
@@ -85,7 +85,7 @@ object WikipediaRanking {
   def rankLangsReduceByKey(langs: List[String], rdd: RDD[WikipediaArticle]): List[(String, Int)] = {
     rdd.flatMap(article =>
       langs.filter(article.mentionsLanguage).map((_, 1)) // (lang1, 1)..(langN, 1)
-    ).reduceByKey((a, b) => a + b)
+    ).reduceByKey(_ + _)
       .sortBy(_._2, ascending = false)
       .collect().toList
   }

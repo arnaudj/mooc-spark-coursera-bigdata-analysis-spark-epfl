@@ -55,10 +55,10 @@ object WikipediaRanking {
 
   /* Compute an inverted index of the set of articles, mapping each language
    * to the Wikipedia pages in which it occurs.
+   * @return  RDD[(languageName, Iterable[WikipediaArticlesHit])]
    */
   def makeIndex(langs: List[String], rdd: RDD[WikipediaArticle]): RDD[(String, Iterable[WikipediaArticle])] = {
     rdd.flatMap(article =>
-      // (langName, TraversableOnce[Article])
       langs.filter(lang => article.mentionsLanguage(lang)).map(lang => (lang, article))
     ).groupByKey()
   }
@@ -69,7 +69,11 @@ object WikipediaRanking {
    *   Note: this operation is long-running. It can potentially run for
    *   several seconds.
    */
-  def rankLangsUsingIndex(index: RDD[(String, Iterable[WikipediaArticle])]): List[(String, Int)] = ???
+  def rankLangsUsingIndex(index: RDD[(String, Iterable[WikipediaArticle])]): List[(String, Int)] = {
+    index.mapValues(articles => articles.size)
+      .sortBy(-_._2) // reverse sort by hits
+      .collect().toList
+  }
 
   /* (3) Use `reduceByKey` so that the computation of the index and the ranking are combined.
    *     Can you notice an improvement in performance compared to measuring *both* the computation of the index
@@ -78,10 +82,15 @@ object WikipediaRanking {
    *   Note: this operation is long-running. It can potentially run for
    *   several seconds.
    */
-  def rankLangsReduceByKey(langs: List[String], rdd: RDD[WikipediaArticle]): List[(String, Int)] = ???
+  def rankLangsReduceByKey(langs: List[String], rdd: RDD[WikipediaArticle]): List[(String, Int)] = {
+    rdd.flatMap(article =>
+      langs.filter(article.mentionsLanguage).map((_, 1)) // (lang1, 1)..(langN, 1)
+    ).reduceByKey((a, b) => a + b)
+      .sortBy(_._2, ascending = false)
+      .collect().toList
+  }
 
   def main(args: Array[String]) {
-
     /* Languages ranked according to (1) */
     val langsRanked: List[(String, Int)] = timed("Part 1: naive ranking", rankLangs(langs, wikiRdd))
 
@@ -95,8 +104,9 @@ object WikipediaRanking {
     val langsRanked3: List[(String, Int)] = timed("Part 3: ranking using reduceByKey", rankLangsReduceByKey(langs, wikiRdd))
 
     /* Output the speed of each ranking */
-    println(timing)
     sc.stop()
+
+    println(timing)
   }
 
   val timing = new StringBuffer

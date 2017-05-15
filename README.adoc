@@ -8,3 +8,4 @@ Assignments:
 
 -> `Your overall score for this assignment is 10.00 out of 10.00`
 
+* Week 2-3: StackOverflow

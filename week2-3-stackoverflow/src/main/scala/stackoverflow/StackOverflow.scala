@@ -1,14 +1,27 @@
 package stackoverflow
 
-import org.apache.spark.SparkConf
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-import annotation.tailrec
-import scala.reflect.ClassTag
+import org.apache.spark.{SparkConf, SparkContext}
+
+import scala.annotation.tailrec
 
 /** A raw stackoverflow posting, either a question or an answer */
-case class Posting(postingType: Int, id: Int, acceptedAnswer: Option[Int], parentId: Option[Int], score: Int, tags: Option[String]) extends Serializable
+case class Posting(postingType: Int, id: Int, acceptedAnswer: Option[Int], parentId: Option[Int], score: Int, tags: Option[String]) extends Serializable {
+  /**
+    * <postTypeId>:     Type of the post. Type 1 = question, type 2 = answer.
+    * <id>:             Post UUID
+    * <acceptedAnswer>: Id of the accepted answer post (optional (empty string))
+    * <parentId>:       For an answer: id of the corresponding question. For a question: missing (empty string)
+    * <score>:          The StackOverflow score (based on user votes).
+    * <tag>:            Question: programming language tag. Answer: empty string
+    *
+    * Layout:
+    * 1 Question has N answers (1 is acceptedAnswer, if any) (based *.parentId = question.id)
+    */
+  def isQuestion: Boolean = postingType == 1
+
+  def isAnswer: Boolean = postingType == 2
+}
 
 
 /** The main class */
@@ -25,6 +38,7 @@ object StackOverflow extends StackOverflow {
     val grouped = groupedPostings(raw)
     val scored  = scoredPostings(grouped)
     val vectors = vectorPostings(scored)
+    assert(raw.count() == 8143801, "Invalid number of extracted postings")
 //    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
 
     val means   = kmeans(sampleVectors(vectors), vectors, debug = true)
@@ -32,7 +46,6 @@ object StackOverflow extends StackOverflow {
     printResults(results)
   }
 }
-
 
 /** The parsing and kmeans methods */
 class StackOverflow extends Serializable {
@@ -55,7 +68,6 @@ class StackOverflow extends Serializable {
 
   /** K-means parameter: Maximum iterations */
   def kmeansMaxIterations = 120
-
 
   //
   //

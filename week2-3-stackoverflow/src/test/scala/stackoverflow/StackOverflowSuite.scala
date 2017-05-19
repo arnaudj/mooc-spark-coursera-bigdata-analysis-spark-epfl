@@ -54,7 +54,7 @@ class StackOverflowSuite extends FunSuite with BeforeAndAfterAll {
       |1,28903923,,,0,PHP
       |2,28904080,,28903923,0,
       |1,20990204,,,6,PHP
-      |1,5077978,,,-2,Python""".stripMargin.split("\n").filter(_ != "").toList
+      |1,5077978,,,-2,Python""".stripMargin.split("\r?\n").filter(_ != "").toList
 
   override def beforeAll(): Unit = {
     assert(initializeStackOverflow() != None)
@@ -100,14 +100,32 @@ class StackOverflowSuite extends FunSuite with BeforeAndAfterAll {
 
     val grouped: RDD[(Int, Iterable[(Posting, Posting)])] = testObject.groupedPostings(raw)
 
-    grouped.
+    val res = grouped.collect.toList
+    assert(res.size == 4)
+    /*  question, 1 answer
+      |1,5484340,,,0,C#
+      |2,5494879,,5484340,1,
+     */
+    assert(res(0)._1 == 5484340)
+    assert(res(0)._2.size == 1)
+    val postings0 = res(0)._2.toList
+    assert(postings0(0)._1.id == 5484340) // question
+    assert(postings0(0)._2.id == 5494879) // answer
 
-    // 5484340- > 5494879
-    // 9002525 -> 9003401, 9003942, 9005311
-    // 21984912 -> 21985273
-    // 28903923 -> 28904080
-    //
-
+    /* question, 3 answers
+      |1,9002525,,,2,C++
+      |2,9003401,,9002525,4,
+      |2,9003942,,9002525,1,
+      |2,9005311,,9002525,0,
+     */
+    assert(res(1)._1 == 9002525)
+    assert(res(1)._2.size == 3)
+    val postings1 = res(1)._2.toList
+    assert(postings1(0)._1.id == 9002525) // question
+    assert(postings1(0)._2.id == 9003401) // answer
+    assert(postings1(1)._1.id == 9002525) // question
+    assert(postings1(1)._2.id == 9003942) // answer
+    assert(postings1(2)._1.id == 9002525) // question
+    assert(postings1(2)._2.id == 9005311) // answer
   }
-
 }

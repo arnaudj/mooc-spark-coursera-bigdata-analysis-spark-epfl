@@ -4,6 +4,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.annotation.tailrec
+import scala.runtime.ScalaRunTime
 
 /** A raw stackoverflow posting, either a question or an answer */
 case class Posting(postingType: Int, id: Int, acceptedAnswer: Option[Int], parentId: Option[Int], score: Int, tags: Option[String]) extends Serializable {
@@ -21,6 +22,10 @@ case class Posting(postingType: Int, id: Int, acceptedAnswer: Option[Int], paren
   def isQuestion: Boolean = postingType == 1
 
   def isAnswer: Boolean = postingType == 2
+
+  def pseudoType: String = if (isQuestion) "Question" else if (isAnswer) "Answer" else "?Posting?"
+
+  override def toString: String = ScalaRunTime._toString(this).replace("Posting", pseudoType)
 }
 
 
@@ -89,8 +94,11 @@ class StackOverflow extends Serializable {
 
 
   /** Group the questions and answers together */
-  def groupedPostings(postings: RDD[Posting]): RDD[(Int, Iterable[(Posting, Posting)])] = {
-    ???
+  def groupedPostings(postings: RDD[Posting]): RDD[(Int, Iterable[( /* Question:*/ Posting, /* Answer: */ Posting)])] = {
+    val answers: RDD[(Int, Posting)] = postings.filter(_.isAnswer).map(p => (p.parentId.getOrElse(-1), p))
+    val questions: RDD[(Int, Posting)] = postings.filter(_.isQuestion).map(p => (p.id, p))
+    // we drop orphan questions (with no answer, since groupedPostings ret signature doesn't allow us to do a leftOuterJoin, that would lead to pairs of (question, Option[answer]))
+    questions.join(answers).groupByKey()
   }
 
 

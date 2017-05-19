@@ -103,23 +103,26 @@ class StackOverflow extends Serializable {
 
 
   /** Compute the maximum score for each posting */
-  def scoredPostings(grouped: RDD[(Int, Iterable[(Posting, Posting)])]): RDD[(Posting, Int)] = {
-
-    def answerHighScore(as: Array[Posting]): Int = {
+  def scoredPostings(grouped: RDD[(Int, Iterable[(Posting, Posting)])]): RDD[( /* Question: */ Posting, /* MaxAnswerScore: */ Int)] = {
+    val answerHighScore = (as: Array[Posting]) => { // answerHighScore RFTed as function, to avoid serializing (this<=>StackOverflow, which in test lies in StackOverflowSuite, which isn't serializable)
       var highScore = 0
-          var i = 0
-          while (i < as.length) {
-            val score = as(i).score
-                if (score > highScore)
-                  highScore = score
-                  i += 1
-          }
+      var i = 0
+      while (i < as.length) {
+        val score = as(i).score
+        if (score > highScore)
+          highScore = score
+        i += 1
+      }
       highScore
     }
 
-    ???
+    grouped.map(entry => {
+      val answers: Array[Posting] = entry._2.map(_._2).toArray
+      val hs: Int = answerHighScore(answers)
+      val question: Posting = entry._2.head._1
+      (question, hs)
+    })
   }
-
 
   /** Compute the vectors for the kmeans */
   def vectorPostings(scored: RDD[(Posting, Int)]): RDD[(Int, Int)] = {

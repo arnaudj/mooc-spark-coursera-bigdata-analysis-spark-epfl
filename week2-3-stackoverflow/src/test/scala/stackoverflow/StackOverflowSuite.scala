@@ -94,14 +94,27 @@ class StackOverflowSuite extends FunSuite with BeforeAndAfterAll {
     raw
   }
 
-  test("RDD[Posting] can be extracted then grouped") {
+  test("RDD[Posting] can be extracted then grouped then scored") {
     assert(initializeStackOverflow() != None, "Can't instantiate a StackOverflow object")
     val raw: RDD[Posting] = createRawPostings()
 
-    val grouped: RDD[(Int, Iterable[(Posting, Posting)])] = testObject.groupedPostings(raw)
+    val groupedRDD: RDD[(Int, Iterable[(Posting, Posting)])] = testObject.groupedPostings(raw)
 
-    val res = grouped.collect.toList
-    assert(res.size == 4)
+    val grouped = groupedRDD.collect.toList
+    assert(grouped.size == 4)
+    deepAssertGroupedPostings(grouped)
+
+    val scoredRDD = testObject.scoredPostings(groupedRDD)
+    val scored = scoredRDD.collect.toList
+    assert(scored.size == 4)
+    assert(scored(0)._1.id == 5484340)
+    assert(scored(0)._2 == 1) // score (from 5494879)
+
+    assert(scored(1)._1.id == 9002525)
+    assert(scored(1)._2 == 4) // score (from 9003401)
+  }
+
+  private def deepAssertGroupedPostings(res: List[(Int, Iterable[(Posting, Posting)])]) = {
     /*  question, 1 answer
       |1,5484340,,,0,C#
       |2,5494879,,5484340,1,

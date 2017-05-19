@@ -40,15 +40,28 @@ object StackOverflow extends StackOverflow {
 
     val lines   = sc.textFile("src/main/resources/stackoverflow/stackoverflow.csv")
     val raw     = rawPostings(lines)
+    assert(raw.count() == 8143801, "Invalid number of extracted postings")
+
+
     val grouped = groupedPostings(raw)
     val scored  = scoredPostings(grouped)
-    val vectors = vectorPostings(scored)
-    assert(raw.count() == 8143801, "Invalid number of extracted postings")
-//    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
+    val scoredCount = scored.count()
+    assert(scoredCount == 2121822, s"Invalid number of extracted scores: ${scoredCount}")
 
-    val means   = kmeans(sampleVectors(vectors), vectors, debug = true)
+    val vectors = vectorPostings(scored)
+    vectors.cache()
+
+    // assignment asserts checkpoint
+    assert(vectors.filter(p => p._1  == 350000 && p._2 == 67).collect.toList.size >= 1)
+    assert(vectors.filter(p => p._1  == 100000 && p._2 == 89).collect.toList.size >= 1)
+    assert(vectors.filter(p => p._1  == 300000 && p._2 == 3).collect.toList.size >= 1)
+    assert(vectors.filter(p => p._1  == 200000 && p._2 == 20).collect.toList.size >= 1)
+
+    println("All good so far, bye")
+
+    /*val means = kmeans(sampleVectors(vectors), vectors, debug = true)
     val results = clusterResults(means, vectors)
-    printResults(results)
+    printResults(results)*/
   }
 }
 
@@ -125,7 +138,7 @@ class StackOverflow extends Serializable {
   }
 
   /** Compute the vectors for the kmeans */
-  def vectorPostings(scored: RDD[(Posting, Int)]): RDD[(Int, Int)] = {
+  def vectorPostings(scored: RDD[( /* Question: */ Posting, /* AnswerMaxScore: */ Int)]) : RDD[( /* langsListIndex*langSpread: */ Int, /* AnswerMaxScore: */ Int)] = {
     /** Return optional index of first language that occurs in `tags`. */
     def firstLangInTag(tag: Option[String], ls: List[String]): Option[Int] = {
       if (tag.isEmpty) None
@@ -139,8 +152,7 @@ class StackOverflow extends Serializable {
         }
       }
     }
-
-    ???
+    scored.map(p => (firstLangInTag(p._1.tags, langs).getOrElse(0) * langSpread, p._2))
   }
 
 

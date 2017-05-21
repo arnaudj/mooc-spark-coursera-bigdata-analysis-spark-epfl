@@ -1,9 +1,11 @@
 package stackoverflow
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.annotation.tailrec
+import scala.io.StdIn
 import scala.runtime.ScalaRunTime
 
 /** A raw stackoverflow posting, either a question or an answer */
@@ -35,33 +37,47 @@ object StackOverflow extends StackOverflow {
   @transient lazy val conf: SparkConf = new SparkConf().setMaster("local").setAppName("StackOverflow")
   @transient lazy val sc: SparkContext = new SparkContext(conf)
 
+  val MAIN_ASSERT_STEPS = false
+  val MAIN_DEVMODE = false
+
   /** Main function */
   def main(args: Array[String]): Unit = {
 
-    val lines   = sc.textFile("src/main/resources/stackoverflow/stackoverflow.csv")
-    val raw     = rawPostings(lines)
-    assert(raw.count() == 8143801, "Invalid number of extracted postings")
-
+    val lines = sc.textFile("src/main/resources/stackoverflow/stackoverflow.csv")
+    val raw = rawPostings(lines)
+    if (MAIN_ASSERT_STEPS) {
+      assert(raw.count() == 8143801, "Invalid number of extracted postings")
+    }
 
     val grouped = groupedPostings(raw)
-    val scored  = scoredPostings(grouped)
-    val scoredCount = scored.count()
-    assert(scoredCount == 2121822, s"Invalid number of extracted scores: ${scoredCount}")
+    val scored = scoredPostings(grouped)
+    if (MAIN_ASSERT_STEPS) {
+      val scoredCount = scored.count()
+      assert(scoredCount == 2121822, s"Invalid number of extracted scores: ${scoredCount}")
+    }
 
-    val vectors = vectorPostings(scored)
-    vectors.cache()
+    val vectors: RDD[(DataPoint)] = vectorPostings(scored)
+    if (MAIN_ASSERT_STEPS) {
+      val vectorsCount = vectors.count()
+      assert(vectorsCount == 2121822, s"Invalid number of extracted vectors: ${vectorsCount}")
+      assert(vectors.filter(p => p._1 == 350000 && p._2 == 67).count() >= 1)
+      assert(vectors.filter(p => p._1 == 100000 && p._2 == 89).count() >= 1)
+      assert(vectors.filter(p => p._1 == 300000 && p._2 == 3).count() >= 1)
+      assert(vectors.filter(p => p._1 == 200000 && p._2 == 20).count() >= 1)
+    }
 
-    // assignment asserts checkpoint
-    assert(vectors.filter(p => p._1  == 350000 && p._2 == 67).collect.toList.size >= 1)
-    assert(vectors.filter(p => p._1  == 100000 && p._2 == 89).collect.toList.size >= 1)
-    assert(vectors.filter(p => p._1  == 300000 && p._2 == 3).collect.toList.size >= 1)
-    assert(vectors.filter(p => p._1  == 200000 && p._2 == 20).collect.toList.size >= 1)
+    if (MAIN_DEVMODE) { // no cache/persist for coursera grader, else OOM
+      vectors.persist(StorageLevel.DISK_ONLY)
+    }
 
-    println("All good so far, bye")
-
-    /*val means = kmeans(sampleVectors(vectors), vectors, debug = true)
+    val means = kmeans(sampleVectors(vectors), vectors, debug = true)
     val results = clusterResults(means, vectors)
-    printResults(results)*/
+    printResults(results)
+
+    if (MAIN_DEVMODE) {
+      println("All good! Press any key to quit")
+      StdIn.readChar()
+    }
   }
 }
 
@@ -152,7 +168,7 @@ class StackOverflow extends Serializable {
         }
       }
     }
-    scored.map(p => (firstLangInTag(p._1.tags, langs).getOrElse(0) * langSpread, p._2))
+    scored.map(p => (firstLangInTag(p._1.tags, langs).getOrElse(-1) * langSpread, p._2))
   }
 
 
@@ -204,12 +220,32 @@ class StackOverflow extends Serializable {
   //  Kmeans method:
   //
   //
+  type CentroidIndex = Int
+  type DataPoint = (Int, Int)
 
   /** Main kmeans computation */
   @tailrec final def kmeans(means: Array[(Int, Int)], vectors: RDD[(Int, Int)], iter: Int = 1, debug: Boolean = false): Array[(Int, Int)] = {
-    val newMeans = means.clone() // you need to compute newMeans
+    val newMeans = means.clone()
 
-    // TODO: Fill in the newMeans array
+    // = K-means clustering (with k centroids & clusters) on n points:
+    // Init:
+    // let input points : K = X1..Xn (@vectors)
+    // place centroids randomly: C1..Ck (@means - done by reservoir sampling in sampleVectors)
+    //
+    // repeat until convergence:
+    // for each point Xi:
+    // - find nearest centroid Cj (min(Xi, Cj)) : assign Xi to cluster j
+    // for each cluster: j = 1..k
+    // - Cj changed to average of all points Xi assigned in previous step
+    val points: RDD[DataPoint] = vectors
+    val centroidIdToDataPoint: RDD[(CentroidIndex, DataPoint)] = points.map(point => (findClosest(point, means), point))
+    val centroidIdToDataPoints: RDD[(CentroidIndex, Iterable[DataPoint])] = centroidIdToDataPoint.groupByKey()
+
+    val centroidIdToNewCentroidDataPoint: RDD[(CentroidIndex, DataPoint)] = centroidIdToDataPoints.mapValues(centroidDataPoints => averageVectors(centroidDataPoints))
+    centroidIdToNewCentroidDataPoint
+      .collect() // collect to refresh newMeans locally on driver
+      .foreach(e => newMeans(e._1) = e._2) // update only available centroids (some might be with 0 associated points)
+
     val distance = euclideanDistance(means, newMeans)
 
     if (debug) {
@@ -265,7 +301,7 @@ class StackOverflow extends Serializable {
     sum
   }
 
-  /** Return the closest point */
+  /** Return the closest center index */
   def findClosest(p: (Int, Int), centers: Array[(Int, Int)]): Int = {
     var bestIndex = 0
     var closest = Double.PositiveInfinity
@@ -304,14 +340,30 @@ class StackOverflow extends Serializable {
   //
   //
   def clusterResults(means: Array[(Int, Int)], vectors: RDD[(Int, Int)]): Array[(String, Double, Int, Int)] = {
-    val closest = vectors.map(p => (findClosest(p, means), p))
-    val closestGrouped = closest.groupByKey()
+    val closest:RDD[(CentroidIndex, DataPoint)] = vectors.map(p => (findClosest(p, means), p))
+    val closestGrouped:RDD[(CentroidIndex, Iterable[DataPoint])] = closest.groupByKey()
 
-    val median = closestGrouped.mapValues { vs =>
-      val langLabel: String   = ??? // most common language in the cluster
-      val langPercent: Double = ??? // percent of the questions in the most common language
-      val clusterSize: Int    = ???
-      val medianScore: Int    = ???
+    val median = closestGrouped.mapValues { vs: Iterable[/* langFactor, answerHighScore */ DataPoint] =>
+      // most common language in the cluster
+      val predominentLangIndex:Int = vs.map(p => (p._1 / langSpread, 1)) // (lang1, 1), (lang1, 2), (lang2, 1)...
+        .groupBy(_._1)   // (lang1, (lang1, (1,1,1))), (lang2, (lang2, (1)) )  (groupBy retains _1 in aggregate)
+        .mapValues(list => list.map(_._2).sum) // (lang1, 3), (lang2, 1)
+        .maxBy(_._2)._1
+      assert(predominentLangIndex >= 0 && predominentLangIndex < langs.size, s"Invalid predominentLangIndex: ${predominentLangIndex}")
+
+      val langLabel: String = langs(predominentLangIndex)
+      val clusterSize: Int = vs.size
+      val langCount: Int = vs.count(p => (p._1 / langSpread) == predominentLangIndex)
+      // percent of the questions in the most common language
+      val langPercent: Double = (langCount.toDouble / clusterSize) * 100
+
+      def computeMedian(s: Seq[Int]) = { // https://rosettacode.org/wiki/Averages/Median#Scala
+        val (lower, upper) = s.sortWith(_ < _).splitAt(s.size / 2)
+        if (s.size % 2 == 0) (lower.last + upper.head) / 2 else upper.head
+      }
+
+      val arr = vs.map(_._2).toArray
+      val medianScore: Int = computeMedian(arr)
 
       (langLabel, langPercent, clusterSize, medianScore)
     }

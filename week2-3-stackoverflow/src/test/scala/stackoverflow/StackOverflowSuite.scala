@@ -114,11 +114,6 @@ class StackOverflowSuite extends FunSuite with BeforeAndAfterAll {
     assert(scored(1)._2 == 4) // score (from 9003401)
   }
 
-  ignore("Test cluster"){
-    // TODO Add cluster test: cf https://www.coursera.org/learn/scala-spark-big-data/discussions/weeks/2/threads/x5PgXAwLEeeoaxKMCL9POg
-    // TODO rollback .persist(DISK_ONLY)
-  }
-
   private def deepAssertGroupedPostings(res: List[(Int, Iterable[(Posting, Posting)])]) = {
     /*  question, 1 answer
       |1,5484340,,,0,C#

@@ -3,6 +3,7 @@ package stackoverflow
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkConf, SparkContext}
+import stackoverflow.StackOverflow.MAIN_DEVMODE
 
 import scala.annotation.tailrec
 import scala.io.StdIn
@@ -40,7 +41,7 @@ object StackOverflow extends StackOverflow {
   val MAIN_ASSERT_STEPS = false
   val MAIN_DEVMODE = false
 
-  /** Main function */
+  /** Main function - NOT CALLED BY GRADER */
   def main(args: Array[String]): Unit = {
 
     val lines = sc.textFile("src/main/resources/stackoverflow/stackoverflow.csv")
@@ -57,6 +58,7 @@ object StackOverflow extends StackOverflow {
     }
 
     val vectors: RDD[(DataPoint)] = vectorPostings(scored)
+
     if (MAIN_ASSERT_STEPS) {
       val vectorsCount = vectors.count()
       assert(vectorsCount == 2121822, s"Invalid number of extracted vectors: ${vectorsCount}")
@@ -64,10 +66,6 @@ object StackOverflow extends StackOverflow {
       assert(vectors.filter(p => p._1 == 100000 && p._2 == 89).count() >= 1)
       assert(vectors.filter(p => p._1 == 300000 && p._2 == 3).count() >= 1)
       assert(vectors.filter(p => p._1 == 200000 && p._2 == 20).count() >= 1)
-    }
-
-    if (MAIN_DEVMODE) { // no cache/persist for coursera grader, else OOM
-      vectors.persist(StorageLevel.DISK_ONLY)
     }
 
     val means = kmeans(sampleVectors(vectors), vectors, debug = true)
@@ -168,7 +166,8 @@ class StackOverflow extends Serializable {
         }
       }
     }
-    scored.map(p => (firstLangInTag(p._1.tags, langs).getOrElse(-1) * langSpread, p._2))
+    val ret = scored.map(p => (firstLangInTag(p._1.tags, langs).getOrElse(-1) * langSpread, p._2))
+    ret.persist(if (MAIN_DEVMODE) StorageLevel.DISK_ONLY else StorageLevel.MEMORY_ONLY)
   }
 
 

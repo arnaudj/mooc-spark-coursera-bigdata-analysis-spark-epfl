@@ -1,9 +1,7 @@
 package stackoverflow
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.storage.StorageLevel
-import org.apache.spark.{SparkConf, SparkContext}
-import stackoverflow.StackOverflow.MAIN_DEVMODE
+import org.apache.spark.{RangePartitioner, SparkConf, SparkContext}
 
 import scala.annotation.tailrec
 import scala.io.StdIn
@@ -108,16 +106,18 @@ class StackOverflow extends Serializable {
   //
 
   /** Load postings from the given file */
-  def rawPostings(lines: RDD[String]): RDD[Posting] =
-    lines.map(line => {
+  def rawPostings(lines: RDD[String]): RDD[Posting] = {
+    val postings = lines.map(line => {
       val arr = line.split(",")
-      Posting(postingType =    arr(0).toInt,
-              id =             arr(1).toInt,
-              acceptedAnswer = if (arr(2) == "") None else Some(arr(2).toInt),
-              parentId =       if (arr(3) == "") None else Some(arr(3).toInt),
-              score =          arr(4).toInt,
-              tags =           if (arr.length >= 6) Some(arr(5).intern()) else None)
+      Posting(postingType = arr(0).toInt,
+        id = arr(1).toInt,
+        acceptedAnswer = if (arr(2) == "") None else Some(arr(2).toInt),
+        parentId = if (arr(3) == "") None else Some(arr(3).toInt),
+        score = arr(4).toInt,
+        tags = if (arr.length >= 6) Some(arr(5).intern()) else None)
     })
+    postings.cache()
+  }
 
 
   /** Group the questions and answers together */
@@ -125,7 +125,12 @@ class StackOverflow extends Serializable {
     val answers: RDD[(Int, Posting)] = postings.filter(_.isAnswer).map(p => (p.parentId.getOrElse(-1), p))
     val questions: RDD[(Int, Posting)] = postings.filter(_.isQuestion).map(p => (p.id, p))
     // we drop orphan questions (with no answer, since groupedPostings ret signature doesn't allow us to do a leftOuterJoin, that would lead to pairs of (question, Option[answer]))
-    questions.join(answers).groupByKey()
+
+    val partitioner = new RangePartitioner(8, questions)
+    val questionsPartitioned = questions.partitionBy(partitioner)
+    val answersPartitioned = answers.partitionBy(partitioner)
+
+    questionsPartitioned.join(answersPartitioned).partitionBy(partitioner).groupByKey().cache()
   }
 
 
@@ -167,7 +172,7 @@ class StackOverflow extends Serializable {
       }
     }
     val ret = scored.map(p => (firstLangInTag(p._1.tags, langs).getOrElse(-1) * langSpread, p._2))
-    ret.persist(if (MAIN_DEVMODE) StorageLevel.DISK_ONLY else StorageLevel.MEMORY_ONLY)
+    ret.cache()
   }
 
 

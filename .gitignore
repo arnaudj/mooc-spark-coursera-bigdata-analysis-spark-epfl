@@ -1,4 +1,7 @@
 target/
 .idea
 *.iml
+*.ipr
+*.iws
 *.dat
+*.csv

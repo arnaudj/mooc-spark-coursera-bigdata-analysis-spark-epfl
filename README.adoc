@@ -2,7 +2,7 @@
 
 Assignments code for https://www.coursera.org/learn/scala-spark-big-data[Big Data Analysis with Scala and Spark] course (Coursera EPFL)
 
-Assignments:
+== Assignments
 
 * Week 1: Wikipedia
 
@@ -12,3 +12,23 @@ Assignments:
 
 -> `Your overall score for this assignment is 10.00 out of 10.00`
 
+== Details
+=== Week 2-3: StackOverflow
+Using the Spark web UI, we visualize the events timeline and DAGs.
+
+==== Extracting vectors
+* Stages 1 and 2: load questions and answers.
+
+* Stage 3: groupedPostings, scoredPostings, vectorPostings
+
+* Stage 4: sampleVectors
+
+image::https://raw.github.com/arnaudj/mooc-spark-coursera-bigdata-analysis-spark-epfl/master/res/static/week2-3-stackoverflow/job1.png[vectors]
+
+
+==== K-Means clustering
+* Jobs 2 to 46 apply the k-means algorithm on the sampleVectors cached in previous step.
+
+For each steps, centroids are updated and collected to the driver to evaluate convergence, stopping when it is reached.
+
+image::https://raw.github.com/arnaudj/mooc-spark-coursera-bigdata-analysis-spark-epfl/master/res/static/week2-3-stackoverflow/jobs2to46.png[kmeans]

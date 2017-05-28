@@ -29,6 +29,6 @@ image::https://raw.github.com/arnaudj/mooc-spark-coursera-bigdata-analysis-spark
 ==== K-Means clustering
 * Jobs 2 to 46 apply the k-means algorithm on the sampleVectors cached in previous step.
 
-For each steps, centroids are updated and collected to the driver to evaluate convergence, stopping when it is reached.
+For each step, centroids are updated and collected to the driver to evaluate convergence, stopping when it is reached.
 
 image::https://raw.github.com/arnaudj/mooc-spark-coursera-bigdata-analysis-spark-epfl/master/res/static/week2-3-stackoverflow/jobs2to46.png[kmeans]

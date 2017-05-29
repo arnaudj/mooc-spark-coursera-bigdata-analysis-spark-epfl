@@ -102,8 +102,23 @@ object TimeUsage {
     *    “t10”, “t12”, “t13”, “t14”, “t15”, “t16” and “t18” (those which are not part of the previous groups only).
     */
   def classifiedColumns(columnNames: List[String]): (List[Column], List[Column], List[Column]) = {
-    ???
+    val primNeedsValidCols = List("t01", "t03", "t11", "t1801", "t1803")
+    val primNeeds = columnNames.filter(col => primNeedsValidCols.exists(validCol => col.startsWith(validCol)))
+
+    val workingActValidCols = List("t05", "t1805")
+    val workingAct = columnNames.filter(col => workingActValidCols.exists(validCol => col.startsWith(validCol)))
+
+    // TODO make primNeeds&workingAct contains check O(1)
+    val otherActValidCols = List("t02", "t04", "t06", "t07", "t08", "t09", "t10", "t12", "t13", "t14", "t15", "t16", "t18")
+    val otherAct = columnNames.filter(col => otherActValidCols.exists(validCol => col.startsWith(validCol)) && !primNeeds.contains(col) && !workingAct.contains(col))
+
+    (
+      primNeeds.map(new Column(_)),
+      workingAct.map(new Column(_)),
+      otherAct.map(new Column(_))
+    )
   }
+
 
   /** @return a projection of the initial DataFrame such that all columns containing hours spent on primary needs
     *         are summed together in a single column (and same for work and leisure). The “teage” column is also

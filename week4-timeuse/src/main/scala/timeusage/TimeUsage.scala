@@ -156,17 +156,23 @@ object TimeUsage {
     otherColumns: List[Column],
     df: DataFrame
   ): DataFrame = {
-    val workingStatusProjection: Column = ???
-    val sexProjection: Column = ???
-    val ageProjection: Column = ???
+    val workingStatusProjection: Column = when($"telfs".between(1, 3), "working").otherwise("not working").as("working")
+    val sexProjection: Column = when($"tesex" === 1, "male").otherwise("female").as("sex")
+    val ageProjection: Column = when($"teage".between(15, 22), "young")
+      .when($"teage".between(23, 55), "active")
+      .otherwise("elder")
+      .as("age")
 
-    val primaryNeedsProjection: Column = ???
-    val workProjection: Column = ???
-    val otherProjection: Column = ???
-    df
-      .select(workingStatusProjection, sexProjection, ageProjection, primaryNeedsProjection, workProjection, otherProjection)
+    // nb: projection: columns to select ; selection: rows to select
+    val primaryNeedsProjection: Column = timeUsageGetHoursPerRow(primaryNeedsColumns).as("primaryNeeds")
+    val workProjection: Column = timeUsageGetHoursPerRow(workColumns).as("work")
+    val otherProjection: Column = timeUsageGetHoursPerRow(otherColumns).as("other")
+
+    df.select(workingStatusProjection, sexProjection, ageProjection, primaryNeedsProjection, workProjection, otherProjection)
       .where($"telfs" <= 4) // Discard people who are not in labor force
   }
+
+  def timeUsageGetHoursPerRow(cols: List[Column]) = cols.reduce(_ + _) / 60
 
   /** @return the average daily time (in hours) spent in primary needs, working or leisure, grouped by the different
     *         ages of life (young, active or elder), sex and working status.
@@ -212,8 +218,10 @@ object TimeUsage {
     * Hint: you should use the `getAs` method of `Row` to look up columns and
     * cast them at the same time.
     */
-  def timeUsageSummaryTyped(timeUsageSummaryDf: DataFrame): Dataset[TimeUsageRow] =
+  def timeUsageSummaryTyped(timeUsageSummaryDf: DataFrame): Dataset[TimeUsageRow] = {
+    // import org.apache.spark.sql.expressions.scalalang.typed
     ???
+  }
 
   /**
     * @return Same as `timeUsageGrouped`, but using the typed API when possible

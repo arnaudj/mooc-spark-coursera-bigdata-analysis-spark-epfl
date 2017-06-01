@@ -28,6 +28,7 @@ object TimeUsage {
 
   def timeUsageByLifePeriod(): Unit = {
     val (columns, initDf) = read("/timeusage/atussum.csv")
+    initDf.cache()
     val (primaryNeedsColumns, workColumns, otherColumns) = classifiedColumns(columns)
     val summaryDf = timeUsageSummary(primaryNeedsColumns, workColumns, otherColumns, initDf)
     val finalDf = timeUsageGrouped(summaryDf)
@@ -176,7 +177,7 @@ object TimeUsage {
 
   /** @return the average daily time (in hours) spent in primary needs, working or leisure, grouped by the different
     *         ages of life (young, active or elder), sex and working status.
-    * @param summed DataFrame returned by `timeUsageSumByClass`
+    * @param summed DataFrame returned by `timeUsageSummary`
     *
     * The resulting DataFrame should have the following columns:
     * - working: the “working” column of the `summed` DataFrame,
@@ -191,13 +192,17 @@ object TimeUsage {
     *
     * Finally, the resulting DataFrame should be sorted by working status, sex and age.
     */
-  def timeUsageGrouped(summed: DataFrame): DataFrame = {
-    ???
-  }
+  def timeUsageGrouped(summed: DataFrame): DataFrame = summed
+    .groupBy("working", "sex", "age")
+    .agg(
+      round(avg($"primaryNeeds"), 1).as("primaryNeeds"),
+      round(avg($"work"), 1).as("work"),
+      round(avg($"other"), 1).as("other"))
+    .orderBy("working", "sex", "age")
 
   /**
     * @return Same as `timeUsageGrouped`, but using a plain SQL query instead
-    * @param summed DataFrame returned by `timeUsageSumByClass`
+    * @param summed DataFrame returned by `timeUsageSummary`
     */
   def timeUsageGroupedSql(summed: DataFrame): DataFrame = {
     val viewName = s"summed"

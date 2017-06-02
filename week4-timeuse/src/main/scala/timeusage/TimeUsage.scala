@@ -212,9 +212,20 @@ object TimeUsage {
 
   /** @return SQL query equivalent to the transformation implemented in `timeUsageGrouped`
     * @param viewName Name of the SQL view to use
+    *
+    * https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Select
+    * https://spark.apache.org/docs/latest/sql-programming-guide.html#compatibility-with-apache-hive
     */
   def timeUsageGroupedSqlQuery(viewName: String): String =
-    ???
+    s"""SELECT
+      |working, sex, age,
+      |round(avg(primaryNeeds), 1) as primaryNeeds,
+      |round(avg(work), 1) as work,
+      |round(avg(other), 1) as other
+      |FROM ${viewName}
+      |GROUP BY working, sex, age
+      |ORDER BY working, sex, age
+      |""".stripMargin
 
   /**
     * @return A `Dataset[TimeUsageRow]` from the “untyped” `DataFrame`

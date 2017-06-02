@@ -1,5 +1,7 @@
 package timeusage
 
+import java.lang.Thread.sleep
+
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.types.{DataType, DataTypes, StructField, StructType}
@@ -21,35 +23,36 @@ class TimeUsageSuite extends FunSpec with BeforeAndAfterAll {
     df.collect().toList.map(row => row.toSeq.toList) should equal(expected)
   }
 
-  describe("timeUsageGrouped") {
-    it("should aggregate and sort data from timeUsageSummary") {
-      val (columns, initDf) = uut.read("/timeusage/atussum-fixture.csv")
-      initDf.count() should equal(10)
+  def getSummaryDf = {
+    val (columns, initDf) = uut.read("/timeusage/atussum-fixture.csv")
+    initDf.count() should equal(10)
 
-      val (primaryNeedsColumns, workColumns, otherColumns) = classifiedColumns(columns)
-      val summaryDf = timeUsageSummary(primaryNeedsColumns, workColumns, otherColumns, initDf)
-      val resDF = uut.timeUsageGrouped(summaryDf)
+    val (primaryNeedsColumns, workColumns, otherColumns) = classifiedColumns(columns)
+    timeUsageSummary(primaryNeedsColumns, workColumns, otherColumns, initDf)
+  }
 
-      assertDataFrame(resDF, List(
-        // working|   sex|   age |primaryNeeds avg rounded | work avg rounded| other avg rounded|
-        List("not working", "female", "active", 13.1, 2.0, 8.9),
-        List("working", "female", "active", 12.6, 2.2, 9.3),
-        List("working", "female", "young", 9.0, 9.1, 5.9),
-        List("working", "male", "active", 11.8, 8.6, 3.6),
-        List("working", "male", "elder", 15.3, 0.0, 8.8)
-      ))
+  describe("timeUsageGrouped*") {
+    val expectedResult = List(
+      // working|   sex|   age |primaryNeeds avg rounded | work avg rounded| other avg rounded|
+      List("not working", "female", "active", 13.1, 2.0, 8.9),
+      List("working", "female", "active", 12.6, 2.2, 9.3),
+      List("working", "female", "young", 9.0, 9.1, 5.9),
+      List("working", "male", "active", 11.8, 8.6, 3.6),
+      List("working", "male", "elder", 15.3, 0.0, 8.8)
+    )
+
+    it("timeUsageGrouped (DataFrame) should aggregate and sort data from timeUsageSummary") {
+      assertDataFrame(uut.timeUsageGrouped(getSummaryDf), expectedResult)
+    }
+
+    it("timeUsageGroupedSql (SQL query) should aggregate and sort data from timeUsageSummary") {
+      assertDataFrame(uut.timeUsageGroupedSql(getSummaryDf), expectedResult)
     }
   }
 
   describe("timeUsageSummary") {
     it("timeUsageSummary should produce an aggregated dataframe (primary/work/other projected)") {
-      val (columns, initDf) = uut.read("/timeusage/atussum-fixture.csv")
-      initDf.count() should equal(10)
-
-      val (primaryNeedsColumns, workColumns, otherColumns) = classifiedColumns(columns)
-      val summaryDf = timeUsageSummary(primaryNeedsColumns, workColumns, otherColumns, initDf)
-
-      assertDataFrame(summaryDf, List(
+      assertDataFrame(getSummaryDf, List(
         // working|   sex|   age|      primaryNeeds|             work|             other|
         List("working", "male", "elder", 15.25, 0.0, 8.75),
         List("working", "female", "active", 13.833333333333334, 0.0, 10.166666666666666),

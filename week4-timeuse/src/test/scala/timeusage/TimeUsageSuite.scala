@@ -1,7 +1,5 @@
 package timeusage
 
-import java.lang.Thread.sleep
-
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.types.{DataType, DataTypes, StructField, StructType}
@@ -47,6 +45,13 @@ class TimeUsageSuite extends FunSpec with BeforeAndAfterAll {
 
     it("timeUsageGroupedSql (SQL query) should aggregate and sort data from timeUsageSummary") {
       assertDataFrame(uut.timeUsageGroupedSql(getSummaryDf), expectedResult)
+    }
+
+    it("timeUsageGroupedTyped (Dataset) should aggregate and sort data from timeUsageSummary") {
+      val timeUsageSummary = getSummaryDf
+      val dataset = uut.timeUsageSummaryTyped(timeUsageSummary)
+      val datasetGrouped = uut.timeUsageGroupedTyped(dataset)
+      assertDataFrame(datasetGrouped.toDF(), expectedResult)
     }
   }
 

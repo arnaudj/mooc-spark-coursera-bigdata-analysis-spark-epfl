@@ -235,8 +235,17 @@ object TimeUsage {
     * cast them at the same time.
     */
   def timeUsageSummaryTyped(timeUsageSummaryDf: DataFrame): Dataset[TimeUsageRow] = {
-    // import org.apache.spark.sql.expressions.scalalang.typed
-    ???
+    timeUsageSummaryDf.as[TimeUsageRow]
+    /*timeUsageSummaryDf.map(r => {
+      TimeUsageRow(
+        r.getAs[String]("working"),
+        r.getAs[String]("sex"),
+        r.getAs[String]("age"),
+        r.getAs[Double]("primaryNeeds"),
+        r.getAs[Double]("work"),
+        r.getAs[Double]("other")
+      )
+    })*/
   }
 
   /**
@@ -251,7 +260,22 @@ object TimeUsage {
     * Hint: you should use the `groupByKey` and `typed.avg` methods.
     */
   def timeUsageGroupedTyped(summed: Dataset[TimeUsageRow]): Dataset[TimeUsageRow] = {
-    ???
+    import org.apache.spark.sql.expressions.scalalang.typed
+
+    type KeyTuple3 = (String, String, String)
+    val kvgpDS: KeyValueGroupedDataset[KeyTuple3, TimeUsageRow] = summed.groupByKey(t => (t.working, t.sex, t.age))
+
+    val aggDS: Dataset[(KeyTuple3, Double, Double, Double)] = kvgpDS.agg(
+      round(typed.avg[TimeUsageRow](_.primaryNeeds), 1).as("primaryNeeds").as[Double],
+      round(typed.avg[TimeUsageRow](_.work), 1).as("work").as[Double],
+      round(typed.avg[TimeUsageRow](_.other), 1).as("other").as[Double])
+
+    val aggregatedTimeUsageRowDS: Dataset[TimeUsageRow] = aggDS.map(e => TimeUsageRow(
+      e._1._1, e._1._2, e._1._3, // working, sex, age
+      e._2, e._3, e._4 // stats
+    ))
+
+    aggregatedTimeUsageRowDS.orderBy($"working", $"sex", $"age")
   }
 }
 

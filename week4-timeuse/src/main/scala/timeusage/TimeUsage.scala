@@ -33,6 +33,7 @@ object TimeUsage {
     val summaryDf = timeUsageSummary(primaryNeedsColumns, workColumns, otherColumns, initDf)
     val finalDf = timeUsageGrouped(summaryDf)
     finalDf.show()
+    //finalDf.coalesce(1).write.json("atussum-dataset.json")
   }
 
   /** @return The read DataFrame along with its column names. */

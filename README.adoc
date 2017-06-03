@@ -38,3 +38,53 @@ image::https://raw.github.com/arnaudj/mooc-spark-coursera-bigdata-analysis-spark
 For each step, centroids are updated and collected to the driver to evaluate convergence, stopping when it is reached.
 
 image::https://raw.github.com/arnaudj/mooc-spark-coursera-bigdata-analysis-spark-epfl/master/res/static/week2-3-stackoverflow/jobs2to46.png[kmeans]
+
+=== Week 4: Time usage
+The data set analyzed originates from the American Time Use Survey (ATUS) data, from 2003-2015, via https://www.kaggle.com/bls/american-time-use-survey[Kaggle].
+It measures how people divide their time among misc life activities.
+
+==== Displaying data  with Zeppelin
+We load the resulting dataset in https://zeppelin.apache.org/[Apache Zeppelin]
+
+===== Install
+* Wget archive from website
+* Untar
+* Run: `SPARK_LOCAL_IP=127.0.0.1 zeppelin-0.7.1/bin/zeppelin-daemon.sh start`
+* Stop: `zeppelin-0.7.1/bin/zeppelin-daemon.sh stop`
+
+_nb: SPARK_LOCAL_IP is set to workaround a port unable to bind exception on 0.7.1_
+
+===== Prepare data export
+Export the resulting week 4 dataset as JSON.
+
+1) From the Spark environment, export data to disk:
+
+[source,scala]
+----
+finalDf.coalesce(1) // <1>
+ .write.json("dataset-week4.json")
+----
+<1> Repartition to obtain only 1 output file (else 1 per partition)
+
+2) Upload to the host running Zeppelin, or wget from it (`%sh` then `wget ...`)
+
+===== Zeppelin
+Connect to the Zeppelin web UI on http://localhost:8080, and create a new notebook with the following content.
+
+[source,scala]
+----
+val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+val sqlData = sqlContext.jsonFile("dataset-week4.json")
+sqlData.registerTempTable("data")
+----
+
+[source,sql]
+----
+%sql SELECT * FROM data ORDER BY work DESC
+----
+
+Display as bar graph:
+
+image::https://raw.github.com/arnaudj/mooc-spark-coursera-bigdata-analysis-spark-epfl/master/res/static/week4-timeuse/bar.png[bar graph]
+
+_nb: sort order seems not to be respected, as per open issue ZEPPELIN-87_

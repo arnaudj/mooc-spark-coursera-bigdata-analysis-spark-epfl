@@ -3,6 +3,7 @@
 Assignments code for https://www.coursera.org/learn/scala-spark-big-data[Big Data Analysis with Scala and Spark] course (Coursera EPFL)
 
 == Assignments
+Final Grade 100%
 
 * Week 1: Wikipedia
 
@@ -11,6 +12,11 @@ Assignments code for https://www.coursera.org/learn/scala-spark-big-data[Big Dat
 * Week 2-3: StackOverflow
 
 -> `Your overall score for this assignment is 10.00 out of 10.00`
+
+* Week 4: Time usage
+
+-> `Your overall score for this assignment is 10.00 out of 10.00`
+
 
 == Details
 === Week 2-3: StackOverflow

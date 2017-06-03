@@ -22,7 +22,7 @@ class TimeUsageSuite extends FunSpec with BeforeAndAfterAll {
   }
 
   def getSummaryDf = {
-    val (columns, initDf) = uut.read("/timeusage/atussum-fixture.csv")
+    val (columns, initDf) = uut.read("/timeusage/atussum-10.csvfixture")
     initDf.count() should equal(10)
 
     val (primaryNeedsColumns, workColumns, otherColumns) = classifiedColumns(columns)
@@ -123,7 +123,7 @@ class TimeUsageSuite extends FunSpec with BeforeAndAfterAll {
 
   describe("read") {
     it("should load a csv file") {
-      val (columns, initDf) = uut.read("/timeusage/atussum-fixture.csv")
+      val (columns, initDf) = uut.read("/timeusage/atussum-10.csvfixture")
       initDf.count() should equal(10)
     }
 
